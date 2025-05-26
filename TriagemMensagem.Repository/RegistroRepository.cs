@@ -7,7 +7,8 @@ namespace TriagemMensagem.Repository;
 
 public class RegistroRepository(IMongoDatabase database, IConfiguration configuration) : IRegistroRepository
 {
-    private readonly IMongoCollection<Registro> registroCollection = database.GetCollection<Registro>(configuration["MongoDbConfiguration:RegistroCollectionName"]);
+    private readonly IMongoCollection<Registro> registroCollection = database.GetCollection<Registro>(configuration["MongoDbConfiguration:Registros" +
+        "CollectionName"]);
 
     public Task SalvarAsync(Registro registro)
     {

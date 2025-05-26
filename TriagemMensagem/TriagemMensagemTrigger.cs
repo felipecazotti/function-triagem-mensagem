@@ -1,8 +1,6 @@
-using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -14,7 +12,7 @@ namespace TriagemMensagem;
 public partial class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemService, ILogger<TriagemMensagemTrigger> logger)
 {
 
-    [GeneratedRegex(@"^(Registrar|Resumo|Filtro|Excluir)(?: (Semanal|Mensal|Anual)| -([1-9][0-9]*)(Dia|Semana|Mes)| (id))$")]
+    [GeneratedRegex(@"^(Registrar|Resumo|Filtro|Excluir)(?: (Semanal|Mensal|Anual)| -([1-9][0-9]*)(Dia|Semana|Mes)| (id) | ([a-zA-Z0-9 ]+))$")]
     private static partial Regex RegexTriagemMensagem();
 
 
@@ -24,7 +22,14 @@ public partial class TriagemMensagemTrigger(ITriagemMensagemService triagemMensa
         using var reader = new StreamReader(req.Body);
         var jsonBody = await reader.ReadToEndAsync();
 
-        var mensagem = jsonBody; //TODO: validar formato que o Twilio envia;
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var requestModel = JsonSerializer.Deserialize<RequestModel>(jsonBody, jsonOptions); //TODO: validar formato que o Twilio envia;
+
+        var mensagem = requestModel.Mensagem;
 
         var match = RegexTriagemMensagem().Match(mensagem);
 
@@ -105,4 +110,10 @@ public partial class TriagemMensagemTrigger(ITriagemMensagemService triagemMensa
         logger.LogWarning("Nenhuma condição encontrada para essa mensagem : {Mensagem}", mensagem);
         return new BadRequestObjectResult(new { Mensagem = "Mensagem inválida." });
     }
+}
+
+
+public class RequestModel
+{
+    public string Mensagem { get; set; }
 }
