@@ -5,110 +5,95 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using TriagemMensagem.Domain.Enums;
+using TriagemMensagem.Domain.Helpers;
 using TriagemMensagem.Domain.IServices;
 
 namespace TriagemMensagem;
 
-public partial class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemService, ILogger<TriagemMensagemTrigger> logger)
+public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemService, ILogger<TriagemMensagemTrigger> logger)
 {
-
-    [GeneratedRegex(@"^(Registrar|Resumo|Filtro|Excluir)(?: (Semanal|Mensal|Anual)| -([1-9][0-9]*)(Dia|Semana|Mes)| (id) | ([a-zA-Z0-9 ]+))$")]
-    private static partial Regex RegexTriagemMensagem();
-
-
     [Function("TriagemMensagemTrigger")]
     public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
     {
-        using var reader = new StreamReader(req.Body);
-        var jsonBody = await reader.ReadToEndAsync();
-
-        var jsonOptions = new JsonSerializerOptions
+        try
         {
-            PropertyNameCaseInsensitive = true
-        };
+            using var reader = new StreamReader(req.Body);
+            var jsonBody = await reader.ReadToEndAsync();
 
-        var requestModel = JsonSerializer.Deserialize<RequestModel>(jsonBody, jsonOptions); //TODO: validar formato que o Twilio envia;
-
-        var mensagem = requestModel.Mensagem;
-
-        var match = RegexTriagemMensagem().Match(mensagem);
-
-        if (!match.Success)
-        {
-            logger.LogWarning("Mensagem inválida: {Mensagem}", mensagem);
-            return new BadRequestObjectResult(new { Mensagem = "Mensagem inválida." });
-        }
-
-        // match.Groups[1] = (Registrar, Resumo, Filtro, Excluir)
-        if (!Enum.TryParse(match.Groups[1].Value, out IdentificadorAcaoEnum tipoAcaoEnum))
-        {
-            logger.LogWarning("Mensagem inválida: {Mensagem}", mensagem);
-            return new BadRequestObjectResult(new { Mensagem = $"Tipo acao {match.Groups[1].Value} nao reconhecido" });
-        }
-
-        if (tipoAcaoEnum == IdentificadorAcaoEnum.Registrar)
-        {
-            var descricao = mensagem.Replace(IdentificadorAcaoEnum.Registrar.ToString(), string.Empty).Trim();
-            await triagemMensagemService.SalvarRegistroAsync(string.IsNullOrWhiteSpace(descricao) ? null : descricao);
-            return new NoContentResult();
-        }
-
-        if (tipoAcaoEnum == IdentificadorAcaoEnum.Resumo)
-        {
-            // match.Groups[2] = (Semanal, Mensal, Anual)
-            if (!Enum.TryParse(match.Groups[2].Value, out IdentificadorPeriodoResumoEnum tipoPeriodoResumo))
+            var jsonOptions = new JsonSerializerOptions
             {
-                logger.LogWarning("Mensagem inválida: {Mensagem}", mensagem);
-                return new BadRequestObjectResult(new { Mensagem = $"Tipo periodo resumo {match.Groups[2].Value} nao reconhecido" });
+                PropertyNameCaseInsensitive = true
+            };
+
+            var requestModel = JsonSerializer.Deserialize<RequestModel>(jsonBody, jsonOptions); //TODO: validar formato que o Twilio envia;
+
+            var mensagem = requestModel.Mensagem;
+
+            var entradaSplit = mensagem?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+            var tipoAcao = ProcessadorMensagemEstatico.ObterAcao(entradaSplit);
+
+            if (tipoAcao.IsError)
+            {
+                logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, tipoAcao.FirstError.Code, tipoAcao.FirstError.Code);
+                return new BadRequestObjectResult(new { Mensagem = tipoAcao.FirstError.Description });
             }
 
-            var registros = await triagemMensagemService.ResumirPeriodoAsync(tipoPeriodoResumo);
-            return new OkObjectResult(registros);
-        }
+            if(tipoAcao.Value == IdentificadorAcaoEnum.Registrar)
+            {
+                var descricao = ProcessadorMensagemEstatico.ObterDescricaoRegistro(entradaSplit);
+                await triagemMensagemService.SalvarRegistroAsync(descricao);
+                return new NoContentResult();
+            }
 
-        if (tipoAcaoEnum == IdentificadorAcaoEnum.Filtro)
+            if(tipoAcao.Value == IdentificadorAcaoEnum.Resumo)
+            {
+                var periodoResumo = ProcessadorMensagemEstatico.ObterPeriodoResumo(entradaSplit);
+                if (periodoResumo.IsError)
+                {
+                    logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoResumo.FirstError.Code, periodoResumo.FirstError.Description);
+                    return new BadRequestObjectResult(new { Mensagem = periodoResumo.FirstError.Description });
+                }
+                var registros = await triagemMensagemService.ResumirPeriodoAsync(periodoResumo.Value);
+                return new OkObjectResult(registros);
+            }
+
+            if(tipoAcao.Value == IdentificadorAcaoEnum.Filtro)
+            {
+                var periodoFiltro = ProcessadorMensagemEstatico.ObterPeriodoFiltro(entradaSplit);
+                if (periodoFiltro.IsError)
+                {
+                    logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoFiltro.FirstError.Code, periodoFiltro.FirstError.Description);
+                    return new BadRequestObjectResult(new { Mensagem = periodoFiltro.FirstError.Description });
+                }
+                var registros = await triagemMensagemService.FiltrarPeriodoAsync(periodoFiltro.Value.Item1, periodoFiltro.Value.Item2);
+                return new OkObjectResult(registros);
+            }
+
+            if(tipoAcao.Value == IdentificadorAcaoEnum.Excluir)
+            {
+                var idExclusao = ProcessadorMensagemEstatico.ObterIdExclusao(entradaSplit);
+                if(idExclusao.IsError)
+                {
+                    logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, idExclusao.FirstError.Code, idExclusao.FirstError.Description);
+                    return new BadRequestObjectResult(new { Mensagem = idExclusao.FirstError.Description });
+                }
+                var resultado = await triagemMensagemService.ExcluirRegistroAsync(idExclusao.Value);
+                if (!resultado)
+                {
+                    logger.LogWarning("Falha ao excluir registro com id: {Id}", idExclusao.Value);
+                    return new NotFoundObjectResult(new { Mensagem = $"Registro com id {idExclusao} não encontrado." });
+                }
+                return new NoContentResult();
+            }
+
+            return new BadRequestObjectResult(new { Mensagem = "Mensagem Inválida"});
+        }
+        catch (Exception ex)
         {
-            // match.Groups[3] = quantidade
-            if (!int.TryParse(match.Groups[3].Value, out int quantidade))
-            {
-                logger.LogWarning("Quantidade inválida: {Quantidade}", match.Groups[3].Value);
-                return new BadRequestObjectResult(new { Mensagem = $"Quantidade {match.Groups[3].Value} invalida" });
-            }
-
-            // match.Groups[4] = tipo(Dia, Semana, Mes)
-            if (!Enum.TryParse(match.Groups[4].Value, true, out IdentificadorPeriodoFiltroEnum tipoPeriodoFiltro))
-            {
-                logger.LogWarning("Tipo de filtro inválido: {Tipo}", match.Groups[4].Value);
-                return new BadRequestObjectResult(new { Mensagem = $"Tipo de periodo filtro {match.Groups[4].Value} nao reconhecido" });
-            }
-
-            var registros = await triagemMensagemService.FiltrarPeriodoAsync(tipoPeriodoFiltro, quantidade);
-            return new OkObjectResult(registros);
+            logger.LogError(ex, "Erro ao processar a mensagem.");
+            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
         }
-
-        if (tipoAcaoEnum == IdentificadorAcaoEnum.Excluir)
-        {
-            // match.Groups[5] = id
-            var id = match.Groups[5].Value;
-            if (string.IsNullOrWhiteSpace(id))
-            {
-                logger.LogWarning("Id para exclusão não informado.");
-                return new BadRequestObjectResult(new { Mensagem = "Id para exclusão não informado." });
-            }
-
-            var resultado = await triagemMensagemService.ExcluirRegistroAsync(id);
-
-            if (!resultado)
-            {
-                logger.LogWarning("Falha ao excluir registro com id: {Id}", id);
-                return new NotFoundObjectResult(new { Mensagem = $"Registro com id {id} nao encontrado." });
-            }
-            return new NoContentResult();
-        }
-
-
-        logger.LogWarning("Nenhuma condição encontrada para essa mensagem : {Mensagem}", mensagem);
-        return new BadRequestObjectResult(new { Mensagem = "Mensagem inválida." });
     }
 }
 

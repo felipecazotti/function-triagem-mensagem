@@ -1,5 +1,4 @@
-﻿using MongoDB.Driver.Linq;
-using TriagemMensagem.Domain.Enums;
+﻿using TriagemMensagem.Domain.Enums;
 using TriagemMensagem.Domain.IRepositories;
 using TriagemMensagem.Domain.IServices;
 using TriagemMensagem.Domain.Models;
@@ -61,7 +60,7 @@ public class TriagemMensagemService(IRegistroRepository registroRepository) : IT
 
         if (tipoPeriodoFiltro == IdentificadorPeriodoFiltroEnum.Semana)
         {
-            return registroRepository.ListarAsync(dataDe: dataHora.AddWeeks(-quantidade));
+            return registroRepository.ListarAsync(dataDe: dataHora.AddDays(-quantidade * 7));
         }
 
         if (tipoPeriodoFiltro == IdentificadorPeriodoFiltroEnum.Mes)
