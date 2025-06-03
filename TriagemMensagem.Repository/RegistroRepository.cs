@@ -27,7 +27,7 @@ public class RegistroRepository(IMongoDatabase database, IConfiguration configur
 
         if (dataAte.HasValue)
             filtro &= filtroBuilder.Lt(r => r.DataHoraRegistro, dataAte.Value);
-
-        return registroCollection.Find(filtro).ToListAsync();
+    
+        return registroCollection.Find(filtro).SortByDescending(registro => registro.DataHoraRegistro).ToListAsync();
     }
 }
