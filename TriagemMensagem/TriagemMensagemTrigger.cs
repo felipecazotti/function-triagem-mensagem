@@ -16,6 +16,8 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
     {
         try
         {
+            logger.LogInformation("Dados da requisicao: Content-Type: {content}", req.ContentType);
+
             using var reader = new StreamReader(req.Body);
             var jsonBody = await reader.ReadToEndAsync();
 
