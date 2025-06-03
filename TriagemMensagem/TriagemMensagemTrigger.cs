@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -6,41 +5,29 @@ using Microsoft.Extensions.Logging;
 using TriagemMensagem.Domain.Enums;
 using TriagemMensagem.Domain.Helpers;
 using TriagemMensagem.Domain.IServices;
+using TriagemMensagem.Domain.Models;
 using Twilio.AspNet.Core;
 using Twilio.TwiML;
+using Twilio.TwiML.Messaging;
 
 namespace TriagemMensagem;
 
 public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemService, ILogger<TriagemMensagemTrigger> logger)
 {
     [Function("TriagemMensagemTrigger")]
-    public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
+    public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
     {
-        var mensagemTesteResponse =  new MessagingResponse();
-        var form = await req.ReadFormAsync();
-
-        logger.LogInformation("Recebendo mensagem de teste: {Mensagem}", form["body"]);
-        mensagemTesteResponse.Message($"Body> {form["body"]}");
-
-        return new TwiMLResult(mensagemTesteResponse);
-
         try
         {
-            logger.LogInformation("Dados da requisicao: Content-Type: {content}", req.ContentType);
+            var formularioRequest = await req.ReadFormAsync();
+            var mensagem = formularioRequest["body"].ToString();
+            logger.LogInformation("Recebendo mensagem: {Mensagem}", mensagem);
 
-            using var reader = new StreamReader(req.Body);
-            var jsonBody = await reader.ReadToEndAsync();
-
-            logger.LogInformation("Recebendo mensagem: {Mensagem}", jsonBody);
-
-            var jsonOptions = new JsonSerializerOptions
+            if(mensagem == "Ping")
             {
-                PropertyNameCaseInsensitive = true
-            };
-
-            var requestModel = JsonSerializer.Deserialize<RequestModel>(jsonBody, jsonOptions); //TODO: validar formato que o Twilio envia;
-
-            var mensagem = requestModel.Mensagem;
+                logger.LogInformation("Mensagem de ping recebida. Respondendo com pong.");
+                return ToTwiML("Pong");
+            }
 
             var entradaSplit = mensagem?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
 
@@ -49,14 +36,14 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
             if (tipoAcao.IsError)
             {
                 logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, tipoAcao.FirstError.Code, tipoAcao.FirstError.Code);
-                return new BadRequestObjectResult(new { Mensagem = tipoAcao.FirstError.Description });
+                return ToTwiML(tipoAcao.FirstError.Description);
             }
 
             if(tipoAcao.Value == IdentificadorAcaoEnum.Registrar)
             {
                 var descricao = ProcessadorMensagemEstatico.ObterDescricaoRegistro(entradaSplit);
                 await triagemMensagemService.SalvarRegistroAsync(descricao);
-                return new NoContentResult();
+                return ToTwiML("Registro salvo com sucesso.");
             }
 
             if(tipoAcao.Value == IdentificadorAcaoEnum.Resumo)
@@ -65,10 +52,10 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                 if (periodoResumo.IsError)
                 {
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoResumo.FirstError.Code, periodoResumo.FirstError.Description);
-                    return new BadRequestObjectResult(new { Mensagem = periodoResumo.FirstError.Description });
+                    return ToTwiML(periodoResumo.FirstError.Description);
                 }
                 var registros = await triagemMensagemService.ResumirPeriodoAsync(periodoResumo.Value);
-                return new OkObjectResult(registros);
+                return ToTwiML(registros);
             }
 
             if(tipoAcao.Value == IdentificadorAcaoEnum.Filtro)
@@ -77,10 +64,10 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                 if (periodoFiltro.IsError)
                 {
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoFiltro.FirstError.Code, periodoFiltro.FirstError.Description);
-                    return new BadRequestObjectResult(new { Mensagem = periodoFiltro.FirstError.Description });
+                    return ToTwiML(periodoFiltro.FirstError.Description);
                 }
                 var registros = await triagemMensagemService.FiltrarPeriodoAsync(periodoFiltro.Value.Item1, periodoFiltro.Value.Item2);
-                return new OkObjectResult(registros);
+                return ToTwiML(registros);
             }
 
             if(tipoAcao.Value == IdentificadorAcaoEnum.Excluir)
@@ -95,23 +82,37 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                 if (!resultado)
                 {
                     logger.LogWarning("Falha ao excluir registro com id: {Id}", idExclusao.Value);
-                    return new NotFoundObjectResult(new { Mensagem = $"Registro com id {idExclusao} não encontrado." });
+                    return ToTwiML($"Falha ao excluir registro com id: {idExclusao.Value}.");
                 }
-                return new NoContentResult();
+                return ToTwiML($"Registro com id: {idExclusao.Value} excluído com sucesso.");
             }
 
-            return new BadRequestObjectResult(new { Mensagem = "Mensagem Inválida"});
+            return ToTwiML("Ação não reconhecida. Por favor, envie uma mensagem válida.");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Erro ao processar a mensagem.");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            logger.LogError(ex, "Erro ao processar a mensagem. Message: {Message}, StackTrace: {StackTrace}", ex.Message, ex.StackTrace);
+            return ToTwiML("Ocorreu um erro ao processar a mensagem");
         }
     }
-}
+
+    private static TwiMLResult ToTwiML(string mensagem)
+    {
+        var responseTwiMl = new MessagingResponse();
+        responseTwiMl.Message(mensagem);
+        return responseTwiMl.ToTwiMLResult();
+    }
+
+    private static TwiMLResult ToTwiML(List<Registro> registros)
+    {
+        var response = new MessagingResponse();
+        foreach(var registro in registros)
+        {
+            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
+        }   
+        return new TwiMLResult(response);
+    }
 
 
-public class RequestModel
-{
-    public string Mensagem { get; set; }
+
 }
