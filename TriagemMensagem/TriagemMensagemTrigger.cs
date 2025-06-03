@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using TriagemMensagem.Domain.Enums;
 using TriagemMensagem.Domain.Helpers;
 using TriagemMensagem.Domain.IServices;
+using Twilio.AspNet.Core;
+using Twilio.TwiML;
 
 namespace TriagemMensagem;
 
@@ -14,6 +16,14 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
     [Function("TriagemMensagemTrigger")]
     public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req)
     {
+        var mensagemTesteResponse =  new MessagingResponse();
+        var form = await req.ReadFormAsync();
+
+        logger.LogInformation("Recebendo mensagem de teste: {Mensagem}", form["body"]);
+        mensagemTesteResponse.Message($"Body> {form["body"]}");
+
+        return new TwiMLResult(mensagemTesteResponse);
+
         try
         {
             logger.LogInformation("Dados da requisicao: Content-Type: {content}", req.ContentType);
