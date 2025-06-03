@@ -105,10 +105,13 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
 
     private static TwiMLResult ToTwiML(List<Registro> registros)
     {
+        if (registros == null || registros.Count == 0)
+            return ToTwiML("Nenhum registro encontrado.");
+
         var response = new MessagingResponse();
         foreach(var registro in registros)
         {
-            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
+            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro:dd/MM/yyyy HH:mm:ss}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
         }   
         return new TwiMLResult(response);
     }
