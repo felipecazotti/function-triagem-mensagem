@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -19,6 +18,8 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
         {
             using var reader = new StreamReader(req.Body);
             var jsonBody = await reader.ReadToEndAsync();
+
+            logger.LogInformation("Recebendo mensagem: {Mensagem}", jsonBody);
 
             var jsonOptions = new JsonSerializerOptions
             {
