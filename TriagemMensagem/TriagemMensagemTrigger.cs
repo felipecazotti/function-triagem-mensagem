@@ -19,7 +19,10 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
     {
         try
         {
+            var data = DateTime.Now;
+            logger.LogDebug($"Iniciando processamento na data: {data:o}. Tipo{data.Kind}. Data Local:{data.ToLocalTime():o}. Data Utc: {data.ToUniversalTime():o}");
             var formularioRequest = await req.ReadFormAsync();
+            logger.LogDebug(formularioRequest.ToString());
             var mensagem = formularioRequest["body"].ToString();
             logger.LogInformation("Recebendo mensagem: {Mensagem}", mensagem);
 
@@ -78,7 +81,9 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, idExclusao.FirstError.Code, idExclusao.FirstError.Description);
                     return ToTwiML(idExclusao.FirstError.Description);
                 }
+                logger.LogDebug("Antes de excluir registro com id: {Id}", idExclusao.Value);
                 var resultado = await triagemMensagemService.ExcluirRegistroAsync(idExclusao.Value);
+                logger.LogDebug("Após tentar excluir registro com id: {Id}. Resultado: {Resultado}", idExclusao.Value, resultado);
                 if (!resultado)
                 {
                     logger.LogWarning("Falha ao excluir registro com id: {Id}", idExclusao.Value);
