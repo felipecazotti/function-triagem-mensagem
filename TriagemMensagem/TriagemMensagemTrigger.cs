@@ -76,7 +76,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                 if(idExclusao.IsError)
                 {
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, idExclusao.FirstError.Code, idExclusao.FirstError.Description);
-                    return new BadRequestObjectResult(new { Mensagem = idExclusao.FirstError.Description });
+                    return ToTwiML(idExclusao.FirstError.Description);
                 }
                 var resultado = await triagemMensagemService.ExcluirRegistroAsync(idExclusao.Value);
                 if (!resultado)
