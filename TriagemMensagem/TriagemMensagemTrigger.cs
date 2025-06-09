@@ -22,6 +22,13 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
             var formularioRequest = await req.ReadFormAsync();
 
             var numeroTelefoneOrigem = formularioRequest["From"].ToString();
+
+            if (string.IsNullOrWhiteSpace(numeroTelefoneOrigem))
+            {
+                logger.LogWarning("Número de telefone de origem não encontrado na requisição.");
+                return ToTwiML("Número de telefone de origem não encontrado.");
+            }
+
             var mensagem = formularioRequest["body"].ToString();
 
             logger.LogInformation("Recebendo mensagem: {Mensagem}, do numero: {numero}", mensagem, numeroTelefoneOrigem);
@@ -45,7 +52,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
             if(tipoAcao.Value == IdentificadorAcaoEnum.Registrar)
             {
                 var descricao = ProcessadorMensagemEstatico.ObterDescricaoRegistro(entradaSplit);
-                await triagemMensagemService.SalvarRegistroAsync(descricao);
+                await triagemMensagemService.SalvarRegistroAsync(numeroTelefoneOrigem, descricao);
                 return ToTwiML("Registro salvo com sucesso.");
             }
 
