@@ -20,10 +20,10 @@ public class RegistroRepository(IMongoDatabase database, IConfiguration configur
         return resultado.DeletedCount > 0;
     }
 
-    public Task<List<Registro>> ListarAsync(DateTime dataDe, DateTime? dataAte = null)
+    public Task<List<Registro>> ListarAsync(string numeroTelefoneOrigem, DateTime dataDe, DateTime? dataAte = null)
     {
         var filtroBuilder = Builders<Registro>.Filter;
-        var filtro = filtroBuilder.Gte(r => r.DataHoraRegistro, dataDe);
+        var filtro = filtroBuilder.Eq(r => r.NumeroTelefoneOrigem, numeroTelefoneOrigem) & filtroBuilder.Gte(r => r.DataHoraRegistro, dataDe);
 
         if (dataAte.HasValue)
             filtro &= filtroBuilder.Lt(r => r.DataHoraRegistro, dataAte.Value);

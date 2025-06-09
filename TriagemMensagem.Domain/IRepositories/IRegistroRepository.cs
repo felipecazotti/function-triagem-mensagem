@@ -5,5 +5,5 @@ public interface IRegistroRepository
 {
     Task SalvarAsync(Registro registro);
     Task<bool> ExcluirAsync(string id);
-    Task<List<Registro>> ListarAsync(DateTime dataDe, DateTime? dataAte = null);
+    Task<List<Registro>> ListarAsync(string numeroTelefoneOrigem, DateTime dataDe, DateTime? dataAte = null);
 }

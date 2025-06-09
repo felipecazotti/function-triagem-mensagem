@@ -19,17 +19,12 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
     {
         try
         {
-            var data = DateTime.Now;
-            logger.LogInformation($"Iniciando processamento na data: {data:o}. Tipo{data.Kind}. Data Local:{data.ToLocalTime():o}. Data Utc: {data.ToUniversalTime():o}");
             var formularioRequest = await req.ReadFormAsync();
 
-            foreach(var key in formularioRequest.Keys)
-            {
-                logger.LogInformation("Chave: {Key}, Valor: {Value}", key, formularioRequest[key]);
-            }
-
+            var numeroTelefoneOrigem = formularioRequest["From"].ToString();
             var mensagem = formularioRequest["body"].ToString();
-            logger.LogInformation("Recebendo mensagem: {Mensagem}", mensagem);
+
+            logger.LogInformation("Recebendo mensagem: {Mensagem}, do numero: {numero}", mensagem, numeroTelefoneOrigem);
 
             if(mensagem == "Ping")
             {
@@ -62,7 +57,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoResumo.FirstError.Code, periodoResumo.FirstError.Description);
                     return ToTwiML(periodoResumo.FirstError.Description);
                 }
-                var registros = await triagemMensagemService.ResumirPeriodoAsync(periodoResumo.Value);
+                var registros = await triagemMensagemService.ResumirPeriodoAsync(numeroTelefoneOrigem, periodoResumo.Value);
                 return ToTwiML(registros);
             }
 
@@ -74,7 +69,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
                     logger.LogWarning("Mensagem inválida: {Mensagem}. Código: {Codigo}. Descricão: {Descricao}", mensagem, periodoFiltro.FirstError.Code, periodoFiltro.FirstError.Description);
                     return ToTwiML(periodoFiltro.FirstError.Description);
                 }
-                var registros = await triagemMensagemService.FiltrarPeriodoAsync(periodoFiltro.Value.Item1, periodoFiltro.Value.Item2);
+                var registros = await triagemMensagemService.FiltrarPeriodoAsync(numeroTelefoneOrigem, periodoFiltro.Value.Item1, periodoFiltro.Value.Item2);
                 return ToTwiML(registros);
             }
 
@@ -122,7 +117,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
 
         foreach (var registro in registros)
         {
-            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro:dd/MM/yyyy HH:mm:ss}. Tipo: {registro.DataHoraRegistro.Kind}. ToTocal: {registro.DataHoraRegistro.ToLocalTime():o}. Original: {registro.DataHoraRegistro:o}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
+            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro.ToLocalTime():dd/MM/yyyy HH:mm:ss}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
         }   
         return new TwiMLResult(response);
     }
