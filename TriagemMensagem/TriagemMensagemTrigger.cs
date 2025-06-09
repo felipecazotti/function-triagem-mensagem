@@ -20,9 +20,9 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
         try
         {
             var data = DateTime.Now;
-            logger.LogDebug($"Iniciando processamento na data: {data:o}. Tipo{data.Kind}. Data Local:{data.ToLocalTime():o}. Data Utc: {data.ToUniversalTime():o}");
+            logger.LogInformation($"Iniciando processamento na data: {data:o}. Tipo{data.Kind}. Data Local:{data.ToLocalTime():o}. Data Utc: {data.ToUniversalTime():o}");
             var formularioRequest = await req.ReadFormAsync();
-            logger.LogDebug(formularioRequest.ToString());
+            logger.LogInformation(formularioRequest.ToString());
             var mensagem = formularioRequest["body"].ToString();
             logger.LogInformation("Recebendo mensagem: {Mensagem}", mensagem);
 
