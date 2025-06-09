@@ -22,7 +22,12 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
             var data = DateTime.Now;
             logger.LogInformation($"Iniciando processamento na data: {data:o}. Tipo{data.Kind}. Data Local:{data.ToLocalTime():o}. Data Utc: {data.ToUniversalTime():o}");
             var formularioRequest = await req.ReadFormAsync();
-            logger.LogInformation(formularioRequest.ToString());
+
+            foreach(var key in formularioRequest.Keys)
+            {
+                logger.LogInformation("Chave: {Key}, Valor: {Value}", key, formularioRequest[key]);
+            }
+
             var mensagem = formularioRequest["body"].ToString();
             logger.LogInformation("Recebendo mensagem: {Mensagem}", mensagem);
 
@@ -117,7 +122,7 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
 
         foreach (var registro in registros)
         {
-            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro:dd/MM/yyyy HH:mm:ss}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
+            response.Append(new Message($"ID: {registro.Id}\nData: {registro.DataHoraRegistro:dd/MM/yyyy HH:mm:ss}. Tipo: {registro.DataHoraRegistro.Kind}. ToTocal: {registro.DataHoraRegistro.ToLocalTime():o}. Original: {registro.DataHoraRegistro:o}" + (string.IsNullOrWhiteSpace(registro.Descricao) ? "\n" : $"\nDescricao: {registro.Descricao}\n")));
         }   
         return new TwiMLResult(response);
     }
