@@ -7,17 +7,18 @@ namespace TriagemMensagem.Service;
 
 public class TriagemMensagemService(IRegistroRepository registroRepository) : ITriagemMensagemService
 {
-    public Task SalvarRegistroAsync(string descricao = null)
+    public Task SalvarRegistroAsync(string numeroTelefoneOrigem, string descricao = null)
     {
         var registro = new Registro
         {
+            NumeroTelefoneOrigem = numeroTelefoneOrigem,
             Descricao = descricao,
             DataHoraRegistro = DateTime.Now
         };
         return registroRepository.SalvarAsync(registro);
     }
 
-    public Task<List<Registro>> ResumirPeriodoAsync(IdentificadorPeriodoResumoEnum tipoPeriodoResumo)
+    public Task<List<Registro>> ResumirPeriodoAsync(string numeroTelefoneOrigem, IdentificadorPeriodoResumoEnum tipoPeriodoResumo)
     {
         var dataHora = DateTime.Today;
         if (tipoPeriodoResumo == IdentificadorPeriodoResumoEnum.Semanal)
@@ -26,7 +27,7 @@ public class TriagemMensagemService(IRegistroRepository registroRepository) : IT
             var dataDomingoDestaSemana = dataHora.AddDays(-diasDesdeDomingo);
             var dataDomingoSemanaPassada = dataDomingoDestaSemana.AddDays(-7);
 
-            return registroRepository.ListarAsync(dataDe: dataDomingoSemanaPassada, dataAte: dataDomingoDestaSemana);
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: dataDomingoSemanaPassada, dataAte: dataDomingoDestaSemana);
         }
 
         if (tipoPeriodoResumo == IdentificadorPeriodoResumoEnum.Mensal)
@@ -36,36 +37,37 @@ public class TriagemMensagemService(IRegistroRepository registroRepository) : IT
             int anoPassado = dataHora.Month == 1 ? dataHora.Year - 1 : dataHora.Year;
             var primeiroDiaMesPassado = new DateTime(anoPassado, mesPassado, 1);
 
-            return registroRepository.ListarAsync(dataDe: primeiroDiaMesPassado, dataAte: primeiroDiaDesseMes);
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: primeiroDiaMesPassado, dataAte: primeiroDiaDesseMes);
         }
 
         if (tipoPeriodoResumo == IdentificadorPeriodoResumoEnum.Anual)
         {
             var primeiroDiaDesseAno = new DateTime(dataHora.Year, 1, 1);
             var primeiroDiaAnoPassado = new DateTime(dataHora.Year - 1, 1, 1);
-            return registroRepository.ListarAsync(dataDe: primeiroDiaAnoPassado, dataAte: primeiroDiaDesseAno);
+
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: primeiroDiaAnoPassado, dataAte: primeiroDiaDesseAno);
         }
 
         throw new ArgumentException("Tipo de período do resumo inválido.", nameof(tipoPeriodoResumo));
     }
 
-    public Task<List<Registro>> FiltrarPeriodoAsync(IdentificadorPeriodoFiltroEnum tipoPeriodoFiltro, int quantidade)
+    public Task<List<Registro>> FiltrarPeriodoAsync(string numeroTelefoneOrigem, IdentificadorPeriodoFiltroEnum tipoPeriodoFiltro, int quantidade)
     {
         var dataHora = DateTime.Today;
 
         if (tipoPeriodoFiltro == IdentificadorPeriodoFiltroEnum.Dia)
         {
-            return registroRepository.ListarAsync(dataDe: dataHora.AddDays(-quantidade));
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: dataHora.AddDays(-quantidade));
         }
 
         if (tipoPeriodoFiltro == IdentificadorPeriodoFiltroEnum.Semana)
         {
-            return registroRepository.ListarAsync(dataDe: dataHora.AddDays(-quantidade * 7));
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: dataHora.AddDays(-quantidade * 7));
         }
 
         if (tipoPeriodoFiltro == IdentificadorPeriodoFiltroEnum.Mes)
         {
-            return registroRepository.ListarAsync(dataDe: dataHora.AddMonths(-quantidade));
+            return registroRepository.ListarAsync(numeroTelefoneOrigem, dataDe: dataHora.AddMonths(-quantidade));
         }
 
         throw new ArgumentException("Tipo de período do filtro inválido.", nameof(tipoPeriodoFiltro));
