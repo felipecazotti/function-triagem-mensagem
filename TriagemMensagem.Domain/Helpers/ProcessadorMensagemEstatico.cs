@@ -61,7 +61,7 @@ public static class ProcessadorMensagemEstatico
 
     public static ErrorOr<string> ObterIdExclusao(string[] splitEntrada)
     {
-        if (splitEntrada.Length < QUANTIDADE_ARGUMENTOS_EXCLUSAO || ObjectId.TryParse(splitEntrada[1], out _))
+        if (splitEntrada.Length < QUANTIDADE_ARGUMENTOS_EXCLUSAO || !ObjectId.TryParse(splitEntrada[1], out _))
             return Error.Validation("MensagemInvalida.IdExclusaoInvalido", "ID para exclusão não informado ou inválido.");
         return splitEntrada[1];
     }
