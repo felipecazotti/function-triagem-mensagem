@@ -128,7 +128,4 @@ public class TriagemMensagemTrigger(ITriagemMensagemService triagemMensagemServi
         }   
         return new TwiMLResult(response);
     }
-
-
-
 }
